@@ -1,0 +1,121 @@
+{
+  "$schema": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/package.json",
+  "name": "customized-oas",
+  "displayName": "Customized OpenAPI Specifications",
+  "description": "Custom linter for OpenAPI Specifications with validation and autocompletion for custom extensions",
+  "version": "1.0.0",
+  "publisher": "c2pher",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cjtlabs/customized-oas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cjtlabs/customized-oas/issues"
+  },
+  "homepage": "https://github.com/cjtlabs/customized-oas#readme",
+  "keywords": [
+    "openapi",
+    "swagger",
+    "linter",
+    "validation",
+    "custom-extensions",
+    "yaml",
+    "json"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:yaml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Customized OAS",
+      "properties": {
+        "cOAS.customExtensions": {
+          "type": "array",
+          "description": "List of custom extensions in an OpenAPI Specification",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Extension name (e.g., x-custom-extension)"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "object",
+                  "array"
+                ],
+                "description": "Expected type of the extension value"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description for autocompletion"
+              },
+              "required": {
+                "type": "boolean",
+                "default": true,
+                "description": "Whether this extension is required"
+              }
+            },
+            "required": [
+              "name",
+              "type"
+            ]
+          },
+          "default": []
+        },
+        "cOAS.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable custom extension linting"
+        },
+        "cOAS.enableAutocompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable autocompletion for custom extensions"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cOAS.validateFile",
+        "title": "Validate OpenAPI Specification Custom Extensions",
+        "category": "Customized OAS"
+      },
+      {
+        "command": "cOAS.addExtension",
+        "title": "Add Custom Extension",
+        "category": "Customized OAS"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "20.x",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "yaml": "^2.3.4",
+    "jsonc-parser": "^3.2.0"
+  }
+}
