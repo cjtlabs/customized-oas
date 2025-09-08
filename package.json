@@ -42,42 +42,7 @@
       "title": "Customized OAS",
       "properties": {
         "cOAS.customExtensions": {
-          "type": "array",
-          "description": "List of custom extensions in an OpenAPI Specification",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Extension name (e.g., x-custom-extension)"
-              },
-              "type": {
-                "type": "string",
-                "enum": [
-                  "string",
-                  "number",
-                  "boolean",
-                  "object",
-                  "array"
-                ],
-                "description": "Expected type of the extension value"
-              },
-              "description": {
-                "type": "string",
-                "description": "Description for autocompletion"
-              },
-              "required": {
-                "type": "boolean",
-                "default": true,
-                "description": "Whether this extension is required"
-              }
-            },
-            "required": [
-              "name",
-              "type"
-            ]
-          },
-          "default": []
+          "$ref": "./schemas/custom-extension.json"
         },
         "cOAS.enableLinting": {
           "type": "boolean",
@@ -109,15 +74,20 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "format": "prettier --write .",
-    "lint:format": "prettier --check ."
+    "lint:format": "prettier --check .",
+    "generate:openapi-spec-schema": "ts-json-schema-generator --path 'src/types/openapi.ts' --type 'OpenAPIDocument' > schemas/openapi-specification.json",
+    "generate:custom-extension-schema": "ts-json-schema-generator --path 'src/types/custom-extension.ts' --type 'CustomExtension' > schemas/custom-extension.json"
   },
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "^1.85.0",
     "prettier": "^3.6.2",
+    "ts-json-schema-generator": "^2.4.0",
     "typescript": "^5.2.2"
   },
   "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "yaml": "^2.3.4"
   }
 }
