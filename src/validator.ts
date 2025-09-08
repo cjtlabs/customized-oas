@@ -1,21 +1,19 @@
-import * as YAML from "yaml";
-import {
-  ICustomExtension,
-  IValidationResult,
-  IValidationError,
-  IOpenAPIDocument,
-} from "./types";
+import * as YAML from 'yaml';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import schema from '../schemas/openapi-specification.json';
+import { CustomExtension, ValidationResult, ValidationError, OpenAPIDocument } from './types';
 
 export class OpenAPIValidator {
-  private customExtensions: ICustomExtension[];
+  private customExtensions: CustomExtension[];
 
-  constructor(customExtensions: ICustomExtension[]) {
+  constructor(customExtensions: CustomExtension[]) {
     this.customExtensions = customExtensions;
   }
 
-  public validateDocument(content: string): IValidationResult {
-    const errors: IValidationError[] = [];
-    let document: IOpenAPIDocument;
+  public validateDocument(content: string): ValidationResult {
+    const errors: ValidationError[] = [];
+    let document: OpenAPIDocument;
 
     try {
       document = YAML.parse(content);
@@ -25,8 +23,8 @@ export class OpenAPIValidator {
         errors: [
           {
             message: `Failed to parse YAML: ${parseError}`,
-            extensionName: "parse-error",
-            severity: "error",
+            extensionName: 'parse-error',
+            severity: 'error',
           },
         ],
         warnings: [],
@@ -34,12 +32,19 @@ export class OpenAPIValidator {
     }
 
     // Validate OpenAPI structure
-    if (!document.openapi) {
-      errors.push({
-        message: 'Missing required "openapi" field',
-        extensionName: "openapi-structure",
-        severity: "error",
-      });
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    addFormats(ajv); // handles email, uri, etc.
+    const validate = ajv.compile(schema);
+
+    const valid = validate(document);
+    if (!valid && validate.errors) {
+      for (const err of validate.errors) {
+        errors.push({
+          message: `Schema validation error at ${err.instancePath || '/'}: ${err.message}`,
+          extensionName: 'schema-validation',
+          severity: 'error',
+        });
+      }
     }
 
     // Validate required custom extensions
@@ -53,16 +58,13 @@ export class OpenAPIValidator {
             line: location?.line,
             column: location?.column,
             extensionName: extension.name,
-            severity: "error",
+            severity: 'error',
           });
         } else {
           // Validate extension type
           const value = document[extension.name];
           if (!this.validateExtensionType(value, extension.type)) {
-            const location = this.findExtensionLocation(
-              content,
-              extension.name
-            );
+            const location = this.findExtensionLocation(content, extension.name);
             errors.push({
               message: `Extension ${extension.name} should be of type ${
                 extension.type
@@ -70,7 +72,7 @@ export class OpenAPIValidator {
               line: location?.line,
               column: location?.column,
               extensionName: extension.name,
-              severity: "error",
+              severity: 'error',
             });
           }
         }
@@ -84,26 +86,21 @@ export class OpenAPIValidator {
     };
   }
 
-  private hasExtension(
-    document: IOpenAPIDocument,
-    extensionName: string
-  ): boolean {
+  private hasExtension(document: OpenAPIDocument, extensionName: string): boolean {
     return document.hasOwnProperty(extensionName);
   }
 
   private validateExtensionType(value: any, expectedType: string): boolean {
     switch (expectedType) {
-      case "string":
-        return typeof value === "string";
-      case "number":
-        return typeof value === "number";
-      case "boolean":
-        return typeof value === "boolean";
-      case "object":
-        return (
-          typeof value === "object" && value !== null && !Array.isArray(value)
-        );
-      case "array":
+      case 'string':
+        return typeof value === 'string';
+      case 'number':
+        return typeof value === 'number';
+      case 'boolean':
+        return typeof value === 'boolean';
+      case 'object':
+        return typeof value === 'object' && value !== null && !Array.isArray(value);
+      case 'array':
         return Array.isArray(value);
       default:
         return false;
@@ -121,13 +118,11 @@ export class OpenAPIValidator {
     content: string,
     extensionName: string
   ): { line: number; column: number } | null {
-    const lines = content.split("\n");
+    const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const match = line.match(
-        new RegExp(
-          `^\\s*${extensionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:`
-        )
+        new RegExp(`^\\s*${extensionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`)
       );
       if (match) {
         return { line: i + 1, column: match.index! + 1 };
@@ -145,11 +140,11 @@ export class OpenAPIValidator {
     return { line: 1, column: 1 };
   }
 
-  public getRequiredExtensions(): ICustomExtension[] {
+  public getRequiredExtensions(): CustomExtension[] {
     return this.customExtensions;
   }
 
-  public updateRequiredExtensions(extensions: ICustomExtension[]): void {
+  public updateRequiredExtensions(extensions: CustomExtension[]): void {
     this.customExtensions = extensions;
   }
 }

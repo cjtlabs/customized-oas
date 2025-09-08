@@ -1,12 +1,10 @@
-import * as vscode from "vscode";
-import { ICustomExtension } from "./types";
+import * as vscode from 'vscode';
+import { CustomExtension } from './types';
 
-export class OpenAPICompletionProvider
-  implements vscode.CompletionItemProvider
-{
-  private customExtensions: ICustomExtension[];
+export class OpenAPICompletionProvider implements vscode.CompletionItemProvider {
+  private customExtensions: CustomExtension[];
 
-  constructor(customExtensions: ICustomExtension[]) {
+  constructor(customExtensions: CustomExtension[]) {
     this.customExtensions = customExtensions;
   }
 
@@ -33,10 +31,7 @@ export class OpenAPICompletionProvider
     const completionItems: vscode.CompletionItem[] = [];
 
     for (const extension of this.customExtensions) {
-      const item = new vscode.CompletionItem(
-        extension.name,
-        vscode.CompletionItemKind.Property
-      );
+      const item = new vscode.CompletionItem(extension.name, vscode.CompletionItemKind.Property);
       item.detail = `Custom Extension (${extension.type})`;
       item.documentation = new vscode.MarkdownString(
         extension.description || `Custom extension of type ${extension.type}`
@@ -47,10 +42,7 @@ export class OpenAPICompletionProvider
       item.insertText = new vscode.SnippetString(snippet);
 
       // Add sorting priority for required extensions
-      item.sortText =
-        extension.required !== false
-          ? "0" + extension.name
-          : "1" + extension.name;
+      item.sortText = extension.required !== false ? '0' + extension.name : '1' + extension.name;
 
       completionItems.push(item);
     }
@@ -58,13 +50,10 @@ export class OpenAPICompletionProvider
     return completionItems;
   }
 
-  private isAtRootLevel(
-    document: vscode.TextDocument,
-    position: vscode.Position
-  ): boolean {
+  private isAtRootLevel(document: vscode.TextDocument, position: vscode.Position): boolean {
     // Check if we're at the root level by examining indentation
     const lineText = document.lineAt(position).text;
-    const indentation = lineText.match(/^\s*/)?.[0] || "";
+    const indentation = lineText.match(/^\s*/)?.[0] || '';
 
     // Root level should have no indentation or minimal indentation
     if (indentation.length > 2) {
@@ -73,7 +62,7 @@ export class OpenAPICompletionProvider
 
     // Look for OpenAPI structure indicators
     const content = document.getText();
-    const lines = content.split("\n");
+    const lines = content.split('\n');
 
     // Check if we're after the openapi/info section but before paths
     let foundOpenAPI = false;
@@ -93,24 +82,24 @@ export class OpenAPICompletionProvider
     return foundOpenAPI && !foundPaths;
   }
 
-  private createSnippet(extension: ICustomExtension): string {
+  private createSnippet(extension: CustomExtension): string {
     switch (extension.type) {
-      case "string":
+      case 'string':
         return `${extension.name}: "\${1:value}"`;
-      case "number":
+      case 'number':
         return `${extension.name}: \${1:0}`;
-      case "boolean":
+      case 'boolean':
         return `${extension.name}: \${1|true,false|}`;
-      case "object":
+      case 'object':
         return `${extension.name}:\n  \${1:key}: \${2:value}`;
-      case "array":
+      case 'array':
         return `${extension.name}:\n  - \${1:item}`;
       default:
-        return `${extension.name}: \${1:value}`;
+        return '';
     }
   }
 
-  public updateRequiredExtensions(extensions: ICustomExtension[]): void {
+  public updateRequiredExtensions(extensions: CustomExtension[]): void {
     this.customExtensions = extensions;
   }
 }

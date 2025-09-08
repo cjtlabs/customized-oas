@@ -1,7 +1,7 @@
-import * as vscode from "vscode";
-import { OpenAPIDiagnosticsProvider } from "./diagnosticsProvider";
-import { OpenAPICompletionProvider } from "./completionProvider";
-import { ICustomExtension } from "./types";
+import * as vscode from 'vscode';
+import { OpenAPIDiagnosticsProvider } from './diagnosticsProvider';
+import { OpenAPICompletionProvider } from './completionProvider';
+import { CustomExtension } from './types';
 
 let diagnosticsProvider: OpenAPIDiagnosticsProvider;
 let completionProvider: OpenAPICompletionProvider;
@@ -9,19 +9,14 @@ let completionProvider: OpenAPICompletionProvider;
 export function activate(context: vscode.ExtensionContext) {
   try {
     // Load configuration
-    const config = vscode.workspace.getConfiguration("cOAS");
-    const customExtensions: ICustomExtension[] =
-      config.get("customExtensions") ?? [];
-    const enableLinting: boolean = config.get("enableLinting") ?? true;
-    const enableAutocompletion: boolean =
-      config.get("enableAutocompletion") ?? true;
+    const config = vscode.workspace.getConfiguration('cOAS');
+    const customExtensions: CustomExtension[] = config.get('customExtensions') ?? [];
+    const enableLinting: boolean = config.get('enableLinting') ?? true;
+    const enableAutocompletion: boolean = config.get('enableAutocompletion') ?? true;
 
     // Initialize diagnostics provider
     if (enableLinting) {
-      diagnosticsProvider = new OpenAPIDiagnosticsProvider(
-        context,
-        customExtensions
-      );
+      diagnosticsProvider = new OpenAPIDiagnosticsProvider(context, customExtensions);
 
       // Validate documents on open and change
       const validateDocument = (document: vscode.TextDocument) => {
@@ -30,9 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(validateDocument),
-        vscode.workspace.onDidChangeTextDocument((e) =>
-          validateDocument(e.document)
-        ),
+        vscode.workspace.onDidChangeTextDocument((e) => validateDocument(e.document)),
         vscode.workspace.onDidSaveTextDocument(validateDocument)
       );
 
@@ -46,39 +39,37 @@ export function activate(context: vscode.ExtensionContext) {
 
       context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-          ["yaml", "yml"],
+          ['yaml', 'yml'],
           completionProvider,
-          "x",
-          "-" // Trigger on 'x' and '-' for x- extensions
+          'x',
+          '-' // Trigger on 'x' and '-' for x- extensions
         )
       );
     }
 
     // Register commands
     context.subscriptions.push(
-      vscode.commands.registerCommand("cOAS.validateFile", () => {
+      vscode.commands.registerCommand('cOAS.validateFile', () => {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor && diagnosticsProvider) {
           diagnosticsProvider.validateDocument(activeEditor.document);
-          vscode.window.showInformationMessage("OpenAPI validation completed");
+          vscode.window.showInformationMessage('OpenAPI validation completed');
         } else {
-          vscode.window.showWarningMessage(
-            "No active OpenAPI file to validate"
-          );
+          vscode.window.showWarningMessage('No active OpenAPI file to validate');
         }
       }),
 
-      vscode.commands.registerCommand("cOAS.addExtension", async () => {
+      vscode.commands.registerCommand('cOAS.addExtension', async () => {
         const activeEditor = vscode.window.activeTextEditor;
         if (!activeEditor) {
-          vscode.window.showWarningMessage("No active file");
+          vscode.window.showWarningMessage('No active file');
           return;
         }
 
         const extensionName = await vscode.window.showInputBox({
-          prompt: "Enter extension name (e.g., x-custom-extension)",
+          prompt: 'Enter extension name (e.g., x-custom-extension)',
           validateInput: (value) => {
-            if (!value.startsWith("x-")) {
+            if (!value.startsWith('x-')) {
               return 'Extension name must start with "x-"';
             }
             return null;
@@ -87,16 +78,12 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (extensionName) {
           const extensionType = await vscode.window.showQuickPick(
-            ["string", "number", "boolean", "object", "array"],
-            { placeHolder: "Select extension type" }
+            ['string', 'number', 'boolean', 'object', 'array'],
+            { placeHolder: 'Select extension type' }
           );
 
           if (extensionType) {
-            await addExtensionToDocument(
-              activeEditor,
-              extensionName,
-              extensionType
-            );
+            await addExtensionToDocument(activeEditor, extensionName, extensionType);
           }
         }
       })
@@ -105,10 +92,9 @@ export function activate(context: vscode.ExtensionContext) {
     // Listen for configuration changes
     context.subscriptions.push(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration("cOAS")) {
-          const newConfig = vscode.workspace.getConfiguration("cOAS");
-          const newExtensions: ICustomExtension[] =
-            newConfig.get("customExtensions") ?? [];
+        if (e.affectsConfiguration('cOAS')) {
+          const newConfig = vscode.workspace.getConfiguration('cOAS');
+          const newExtensions: CustomExtension[] = newConfig.get('customExtensions') ?? [];
 
           if (diagnosticsProvider) {
             diagnosticsProvider.updateRequiredExtensions(newExtensions);
@@ -116,18 +102,14 @@ export function activate(context: vscode.ExtensionContext) {
           if (completionProvider) {
             completionProvider.updateRequiredExtensions(newExtensions);
           }
-
-          console.log("Customized OAS: Configuration updated", newExtensions);
         }
       })
     );
 
-    vscode.window.showInformationMessage("Customized OAS Linter Activated");
+    vscode.window.showInformationMessage('Customized OAS Linter Activated');
   } catch (error) {
-    console.error("Extension activation failed:", error);
-    vscode.window.showErrorMessage(
-      `Customized OAS activation failed: ${error}`
-    );
+    console.error('Extension activation failed:', error);
+    vscode.window.showErrorMessage(`Customized OAS activation failed: ${error}`);
   }
 }
 
@@ -140,7 +122,7 @@ async function addExtensionToDocument(
   const content = document.getText();
 
   // Find insertion point (after openapi and info sections)
-  const lines = content.split("\n");
+  const lines = content.split('\n');
   let insertLine = 0;
 
   for (let i = 0; i < lines.length; i++) {
@@ -161,19 +143,19 @@ async function addExtensionToDocument(
   // Create extension snippet
   let extensionSnippet: string;
   switch (extensionType) {
-    case "string":
+    case 'string':
       extensionSnippet = `${extensionName}: "value"`;
       break;
-    case "number":
+    case 'number':
       extensionSnippet = `${extensionName}: 0`;
       break;
-    case "boolean":
+    case 'boolean':
       extensionSnippet = `${extensionName}: true`;
       break;
-    case "object":
+    case 'object':
       extensionSnippet = `${extensionName}:\n  key: value`;
       break;
-    case "array":
+    case 'array':
       extensionSnippet = `${extensionName}:\n  - item`;
       break;
     default:
@@ -182,7 +164,7 @@ async function addExtensionToDocument(
 
   const position = new vscode.Position(insertLine, 0);
   await editor.edit((editBuilder) => {
-    editBuilder.insert(position, extensionSnippet + "\n");
+    editBuilder.insert(position, extensionSnippet + '\n');
   });
 }
 
