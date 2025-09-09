@@ -1,3 +1,5 @@
+import * as vscode from 'vscode';
+
 export type ValidationResult = {
   isValid: boolean;
   errors: ValidationError[];
@@ -10,6 +12,7 @@ export type ValidationError = {
   column?: number;
   extensionName: string;
   severity: 'error' | 'warning';
+  range?: vscode.Range;
 };
 
 type ValidationWarning = {
@@ -17,4 +20,5 @@ type ValidationWarning = {
   line?: number;
   column?: number;
   extensionName?: string;
+  range?: vscode.Range;
 };

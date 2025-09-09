@@ -50,7 +50,11 @@ export class OpenAPIDiagnosticsProvider {
     for (const error of result.errors) {
       const range = this.createRange(document, error.line, error.column);
       const diagnostic = new vscode.Diagnostic(
-        range,
+        range ??
+          new vscode.Range(
+            new vscode.Position(error.line! - 1, 0),
+            new vscode.Position(error.line! - 1, 1000)
+          ),
         error.message,
         error.severity === 'error'
           ? vscode.DiagnosticSeverity.Error

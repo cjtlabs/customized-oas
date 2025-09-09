@@ -1,4 +1,5 @@
 import * as YAML from 'yaml';
+import * as vscode from 'vscode';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import schema from '../schemas/openapi-specification.json';
@@ -32,17 +33,35 @@ export class OpenAPIValidator {
     }
 
     // Validate OpenAPI structure
-    const ajv = new Ajv({ allErrors: true, strict: false });
+    const ajv = new Ajv({ allErrors: true, strict: false, verbose: true });
     addFormats(ajv); // handles email, uri, etc.
     const validate = ajv.compile(schema);
 
     const valid = validate(document);
     if (!valid && validate.errors) {
       for (const err of validate.errors) {
+        const location = this.findExtensionLocation(content, err.instancePath);
+
+        const property = (err.params as any)?.additionalProperty;
+        let range: vscode.Range | undefined;
+
+        if (location && property) {
+          // highlight just the property key
+          const lineText = content.split('\n')[location.line - 1];
+          const startCol = lineText.indexOf(property);
+          if (startCol >= 0) {
+            const pos = new vscode.Position(location.line - 1, startCol);
+            range = new vscode.Range(pos, pos.translate(0, property.length));
+          }
+        }
+
         errors.push({
-          message: `Schema validation error at ${err.instancePath || '/'}: ${err.message}`,
+          message: `Schema validation error: Property "${property}" is not allowed at ${err.instancePath || '/'}`,
+          line: location?.line,
+          column: location?.column,
           extensionName: 'schema-validation',
           severity: 'error',
+          range,
         });
       }
     }
@@ -51,8 +70,8 @@ export class OpenAPIValidator {
     for (const extension of this.customExtensions) {
       if (extension.required !== false) {
         const hasExtension = this.hasExtension(document, extension.name);
+        const location = this.findExtensionLocation(content, extension.name);
         if (!hasExtension) {
-          const location = this.findExtensionLocation(content, extension.name);
           errors.push({
             message: `Missing required custom extension: ${extension.name}`,
             line: location?.line,
@@ -64,7 +83,6 @@ export class OpenAPIValidator {
           // Validate extension type
           const value = document[extension.name];
           if (!this.validateExtensionType(value, extension.type)) {
-            const location = this.findExtensionLocation(content, extension.name);
             errors.push({
               message: `Extension ${extension.name} should be of type ${
                 extension.type
@@ -116,28 +134,55 @@ export class OpenAPIValidator {
 
   private findYamlLocation(
     content: string,
-    extensionName: string
+    extensionPath: string
   ): { line: number; column: number } | null {
     const lines = content.split('\n');
+    const pathParts = extensionPath.split('/').filter((part) => part.length > 0);
+
+    let depth = 0;
+    let arrayIndex = -1; // track current array index when inside `-`
+
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const match = line.match(
-        new RegExp(`^\\s*${extensionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`)
-      );
+      const trimmed = line.trim();
+
+      // Check if this line starts an array item
+      const arrayItemMatch = trimmed.match(/^- /);
+      if (arrayItemMatch) {
+        arrayIndex++;
+        // If the current pathPart is an index, check it
+        if (String(arrayIndex) === pathParts[depth]) {
+          depth++;
+          if (depth === pathParts.length) {
+            return { line: i + 1, column: this.getIndentation(line) + 3 };
+          }
+        }
+      }
+
+      // Match a mapping key (with or without "- " prefix)
+      const match = trimmed.match(/^(?:-\s+)?([A-Za-z0-9_\-]+)\s*:/);
       if (match) {
-        return { line: i + 1, column: match.index! + 1 };
+        const key = match[1];
+        if (key === pathParts[depth]) {
+          depth++;
+          if (depth === pathParts.length) {
+            return { line: i + 1, column: this.getIndentation(line) + 1 };
+          }
+        }
+      }
+
+      // Reset arrayIndex when indentation decreases (new block)
+      if (this.getIndentation(line) === 0) {
+        arrayIndex = -1;
       }
     }
 
-    // If not found, return location for root level (where it should be added)
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (line.match(/^openapi\s*:/)) {
-        return { line: i + 2, column: 1 }; // After openapi line
-      }
-    }
+    return null;
+  }
 
-    return { line: 1, column: 1 };
+  private getIndentation(line: string): number {
+    const match = line.match(/^(\s*)\S/);
+    return match ? match[1].length : 0;
   }
 
   public getRequiredExtensions(): CustomExtension[] {
