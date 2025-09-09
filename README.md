@@ -30,16 +30,35 @@ Add the following to your VS Code settings:
 {
   "cOAS.customExtensions": [
     {
+      "in": "root",
       "name": "x-custom-field",
       "type": "string",
       "description": "Custom field name",
       "required": true
     },
     {
+      "in": "servers",
       "name": "x-custom-version",
       "type": "number",
       "description": "Custom version number",
       "required": false
+    },
+    {
+      "in": "requestBody",
+      "name": "x-custom-pagination",
+      "type": "object",
+      "description": "Custom pagination configuration",
+      "required": true,
+      "properties": {
+        "paginationType": {
+          "type": "string",
+          "required": false
+        },
+        "dataKey": {
+          "type": "string",
+          "required": true
+        }
+      }
     }
   ],
   "cOAS.enableLinting": true,
@@ -49,10 +68,13 @@ Add the following to your VS Code settings:
 
 ### Extension Configuration Properties
 
+- **in**: Position of the Extension in the OAS structure (`root`, `servers`, `tags`, `parameters`, `requestBody`)
 - **name**: Extension name (must start with `x-`)
 - **type**: Expected value type (`string`, `number`, `boolean`, `object`, `array`)
 - **description**: Description shown in autocompletion
 - **required**: Whether the extension is mandatory (default: `true`)
+- **items**: For type `array`, contains `extension configuration` items
+- **properties**: For type `object`, contains `extension configuration` properties
 
 ## Commands
 
@@ -65,9 +87,9 @@ Access via Command Palette (`Ctrl+Shift+P`) → "Customized OAS"
 
 The extension automatically detects OpenAPI files based on:
 
-- File names containing "openapi" or "swagger"
+- File names containing "openapi"
 - Content containing `openapi: 3.x` declarations
-- File extensions: `.yaml`, `.yml`, `.json`
+- File extensions: `.yaml`, `.yml`
 
 ## Usage Examples
 
@@ -88,8 +110,11 @@ openapi: 3.1.0
 info:
   title: My API
   version: 1.0.0
-x-custom-field: "My Custom API" # ✅ Required extension present
-x-custom-version: 2 # ✅ Optional extension
+x-custom-field: 'My Custom API' # ✅ Required extension present
+servers:
+  - url: https://api.customize-oas.com
+    description: Production Server
+    x-custom-version: 2 # ✅ Optional extension
 ```
 
 ### Autocompletion
@@ -120,4 +145,4 @@ npm run watch
 ## Requirements
 
 - VS Code 1.85.0 or higher
-- Node.js 18.x or higher
+- Node.js 22.x.x or higher
