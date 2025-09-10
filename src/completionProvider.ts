@@ -41,6 +41,12 @@ export class OpenAPICompletionProvider implements vscode.CompletionItemProvider 
       const snippet = this.createSnippet(extension);
       item.insertText = new vscode.SnippetString(snippet);
 
+      // Replace the trigger keys (x-) with selected suggestions
+      const range = document.getWordRangeAtPosition(position, /x-[\w-]*/);
+      if (range) {
+        item.range = range;
+      }
+
       // Add sorting priority for required extensions
       item.sortText = extension.required !== false ? '0' + extension.name : '1' + extension.name;
 
