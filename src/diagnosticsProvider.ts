@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { OpenAPIValidator } from './validator';
+import { OpenAPIValidator } from './validator/validator';
 import { CustomExtension, ValidationResult } from './types';
 
 export class OpenAPIDiagnosticsProvider {

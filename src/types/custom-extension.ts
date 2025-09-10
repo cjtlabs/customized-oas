@@ -1,3 +1,5 @@
+import { ExtensionLocation } from '../validator/enums';
+
 // Base fields shared by all custom extension property types
 type BaseProperty = {
   description?: string;
@@ -31,6 +33,6 @@ type CustomExtensionProperty =
 
 // Base property 'in' to attach custom extension in OAS Sections
 export type CustomExtension = {
-  in: 'root' | 'servers' | 'tags' | 'parameters' | 'requestBody';
+  in: ExtensionLocation;
   name: string;
 } & CustomExtensionProperty;
