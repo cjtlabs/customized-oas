@@ -165,7 +165,7 @@ export class OpenAPIValidator {
 
     document.servers.forEach((server, index) => {
       const hasExtension = this.hasExtension(document, extension.name, server);
-      const location = this.findExtensionLocation(content, `servers/${index}/${extension.name}`);
+      const location = this.findExtensionLocation(content, `servers/${index}`);
 
       if (!hasExtension) {
         errors.push({
@@ -202,7 +202,7 @@ export class OpenAPIValidator {
 
     document.tags.forEach((tag, index) => {
       const hasExtension = this.hasExtension(document, extension.name, tag);
-      const location = this.findExtensionLocation(content, `tags/${index}/${extension.name}`);
+      const location = this.findExtensionLocation(content, `tags/${index}`);
 
       if (!hasExtension) {
         errors.push({
@@ -242,7 +242,7 @@ export class OpenAPIValidator {
             const hasExtension = this.hasExtension(document, extension.name, param);
             const location = this.findExtensionLocation(
               content,
-              `paths/${pathKey}/parameters/${index}/${extension.name}`
+              `paths/${pathKey}/parameters/${index}`
             );
 
             if (!hasExtension) {
@@ -277,7 +277,7 @@ export class OpenAPIValidator {
               const hasExtension = this.hasExtension(document, extension.name, param);
               const location = this.findExtensionLocation(
                 content,
-                `paths/${pathKey}/${method}/parameters/${index}/${extension.name}`
+                `paths/${pathKey}/${method}/parameters/${index}`
               );
 
               if (!hasExtension) {
@@ -324,7 +324,7 @@ export class OpenAPIValidator {
             const hasExtension = this.hasExtension(document, extension.name, operation.requestBody);
             const location = this.findExtensionLocation(
               content,
-              `paths/${pathKey}/${method}/requestBody/${extension.name}`
+              `paths/${pathKey}/${method}/requestBody`
             );
 
             if (!hasExtension) {
