@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
-import { CustomExtension } from './types';
+import * as YAML from 'yaml';
+import { CustomExtension, OpenAPIDocument } from './types';
+import { ExtensionLocationEnum } from './validator/enums';
 
 export class OpenAPICompletionProvider implements vscode.CompletionItemProvider {
   private customExtensions: CustomExtension[];
@@ -17,32 +19,38 @@ export class OpenAPICompletionProvider implements vscode.CompletionItemProvider 
     const lineText = document.lineAt(position).text;
     const linePrefix = lineText.substring(0, position.character);
 
-    // Check if we're at the root level of the document
-    if (!this.isAtRootLevel(document, position)) {
-      return [];
-    }
-
     // Check if we're typing an extension (starts with 'x-')
     const extensionMatch = linePrefix.match(/^\s*(x-[\w-]*)?$/);
     if (!extensionMatch) {
       return [];
     }
 
+    // Determine the current context/location in the OpenAPI document
+    const currentLocation = this.determineExtensionLocation(document, position);
+    if (!currentLocation) {
+      return [];
+    }
+
     const completionItems: vscode.CompletionItem[] = [];
 
-    for (const extension of this.customExtensions) {
+    // Filter extensions based on current location
+    const relevantExtensions = this.customExtensions.filter(
+      extension => extension.in === currentLocation
+    );
+
+    for (const extension of relevantExtensions) {
       const item = new vscode.CompletionItem(extension.name, vscode.CompletionItemKind.Property);
-      item.detail = `Custom Extension (${extension.type})`;
+      item.detail = `Custom Extension (${extension.type}) - ${extension.in}`;
       item.documentation = new vscode.MarkdownString(
-        extension.description || `Custom extension of type ${extension.type}`
+        extension.description || `Custom extension of type ${extension.type} for ${extension.in} section`
       );
 
       // Create appropriate snippet based on type
       const snippet = this.createSnippet(extension);
       item.insertText = new vscode.SnippetString(snippet);
 
-      // Replace the trigger keys (x-) with selected suggestions
-      const range = document.getWordRangeAtPosition(position, /x-[\w-]*/);
+      // Create precise range for replacement
+      const range = this.createReplacementRange(document, position, linePrefix);
       if (range) {
         item.range = range;
       }
@@ -56,36 +64,102 @@ export class OpenAPICompletionProvider implements vscode.CompletionItemProvider 
     return completionItems;
   }
 
-  private isAtRootLevel(document: vscode.TextDocument, position: vscode.Position): boolean {
-    // Check if we're at the root level by examining indentation
-    const lineText = document.lineAt(position).text;
-    const indentation = lineText.match(/^\s*/)?.[0] || '';
-
-    // Root level should have no indentation or minimal indentation
-    if (indentation.length > 2) {
-      return false;
-    }
-
-    // Look for OpenAPI structure indicators
+  private determineExtensionLocation(document: vscode.TextDocument, position: vscode.Position): string | null {
     const content = document.getText();
-    const lines = content.split('\n');
+    let parsedDoc: OpenAPIDocument;
 
-    // Check if we're after the openapi/info section but before paths
-    let foundOpenAPI = false;
-    let foundPaths = false;
+    try {
+      parsedDoc = YAML.parse(content);
+    } catch (error) {
+      return null;
+    }
 
-    for (let i = 0; i < position.line; i++) {
+    // Get the current path in the YAML structure
+    const yamlPath = this.getYamlPath(document, position);
+    
+    // Determine location based on YAML path context
+    if (yamlPath.length === 0) {
+      return ExtensionLocationEnum.Root;
+    }
+
+    // Check for specific contexts in order of specificity
+    if (yamlPath.includes('requestBody')) {
+      return ExtensionLocationEnum.RequestBody;
+    }
+
+    if (yamlPath.includes('parameters')) {
+      return ExtensionLocationEnum.Parameters;
+    }
+
+    if (yamlPath.includes('servers')) {
+      return ExtensionLocationEnum.Servers;
+    }
+
+    if (yamlPath.includes('tags')) {
+      return ExtensionLocationEnum.Tags;
+    }
+
+    // Check if we're in a paths section but not in a specific operation context
+    if (yamlPath.includes('paths') && !this.isInOperationContext(yamlPath)) {
+      return ExtensionLocationEnum.Root;
+    }
+
+    // Default to root for top-level extensions
+    return ExtensionLocationEnum.Root;
+  }
+
+  private isInOperationContext(yamlPath: string[]): boolean {
+    const httpMethods = ['get', 'post', 'put', 'delete', 'options', 'head', 'patch', 'trace'];
+    return yamlPath.some(part => httpMethods.includes(part.toLowerCase()));
+  }
+
+  private getYamlPath(document: vscode.TextDocument, position: vscode.Position): string[] {
+    const lines = document.getText().split('\n');
+    const path: string[] = [];
+    let currentIndentation = this.getIndentation(lines[position.line]);
+
+    // Walk backwards from current position to build the path
+    for (let i = position.line; i >= 0; i--) {
       const line = lines[i];
-      if (line.match(/^openapi\s*:/)) {
-        foundOpenAPI = true;
+      const indentation = this.getIndentation(line);
+      const trimmed = line.trim();
+
+      if (trimmed === '' || trimmed.startsWith('#')) {
+        continue;
       }
-      if (line.match(/^paths\s*:/)) {
-        foundPaths = true;
-        break;
+
+      // If this line has less or equal indentation, it could be a parent
+      if (indentation <= currentIndentation) {
+        const match = trimmed.match(/^(?:-\s+)?([A-Za-z0-9_\-]+)\s*:/);
+        if (match) {
+          const key = match[1];
+          // Only add to path if it's not already there (avoid duplicates)
+          if (!path.includes(key)) {
+            path.unshift(key);
+          }
+          currentIndentation = indentation;
+        }
       }
     }
 
-    return foundOpenAPI && !foundPaths;
+    return path;
+  }
+
+  private getIndentation(line: string): number {
+    const match = line.match(/^(\s*)\S/);
+    return match ? match[1].length : 0;
+  }
+
+  private createReplacementRange(document: vscode.TextDocument, position: vscode.Position, linePrefix: string): vscode.Range | undefined {
+    // Find the 'x-' prefix to replace
+    const match = linePrefix.match(/(x-[\w-]*)$/);
+    if (match) {
+      const startPos = new vscode.Position(position.line, position.character - match[1].length);
+      return new vscode.Range(startPos, position);
+    }
+
+    // If no existing 'x-' prefix, just insert at current position
+    return undefined;
   }
 
   private createSnippet(extension: CustomExtension): string {
